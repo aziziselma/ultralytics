@@ -1,0 +1,42 @@
+# YOLO11 Student Model (Version Modérée - Réduction de ~30% des paramètres)
+nc: 80              # nombre de classes
+scale: n            # on utilise le scale "n"
+scales:
+  n: [0.75, 0.25, 1024]   # Réduction modérée de la largeur
+  s: [0.75, 0.50, 1024]
+  m: [1.00, 1.00, 512]
+  l: [1.00, 1.00, 512]
+  x: [1.00, 1.50, 512]
+
+# -------------------------------
+# Backbone
+backbone:
+  - [-1, 1, Conv, [48, 3, 2]]        # Remplace 16 -> 48
+  - [-1, 1, Conv, [96, 3, 2]]        # Remplace 32 -> 96
+  - [-1, 2, C3k2, [96, False, 0.5]]  # Réduction modérée de 256 à 96
+  - [-1, 1, Conv, [96, 3, 2]]
+  - [-1, 2, C3k2, [192, False, 0.5]] # Réduction modérée de 512 à 192
+  - [-1, 2, C3k2, [192, False, 0.5]] # Ajout d'une autre répétition pour plus de complexité
+  - [-1, 1, Conv, [192, 3, 2]]
+  - [-1, 2, C3k2, [192, True]]       # Passage de 512 -> 192
+  - [-1, 1, Conv, [384, 3, 2]]        # Passage de 1024 -> 384
+  - [-1, 2, C3k2, [384, True]]       # Répétition du C3k2 avec plus de profondeur
+  - [-1, 1, SPPF, [384, 5]]           # SPPF sur 384 canaux
+  - [-1, 2, C2PSA_CBAM, [384]]        # Utilisation de la version CBAM
+
+# -------------------------------
+# Head
+head:
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 6], 1, Concat, [1]]         # concaténer avec la couche 6
+  - [-1, 2, C3k2, [192, False]]        # Réduction de 512 -> 192
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 4], 1, Concat, [1]]
+  - [-1, 2, C3k2, [96, False]]         # Réduction de 256 -> 96
+  - [-1, 1, Conv, [96, 3, 2]]
+  - [[-1, 13], 1, Concat, [1]]
+  - [-1, 2, C3k2, [192, False]]        # Réduction de 512 -> 192
+  - [-1, 1, Conv, [192, 3, 2]]
+  - [[-1, 10], 1, Concat, [1]]
+  - [-1, 2, C3k2, [384, True]]         # Réduction de 1024 -> 384
+  - [[16, 19, 22], 1, Detect, [nc]]
